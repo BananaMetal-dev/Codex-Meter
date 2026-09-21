@@ -1,0 +1,11 @@
+bin/
+obj/
+.build/
+state/
+*.lnk
+protocol/
+
+.tools/
+artifacts/
+.nuget/
+PROJECT_STATE.md
