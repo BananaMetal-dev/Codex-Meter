@@ -1,0 +1,15 @@
+#!/bin/sh
+set -eu
+node scripts/check-public-privacy.mjs --all
+zero=0000000000000000000000000000000000000000
+while read -r local_ref local_sha remote_ref remote_sha; do
+  if [ "$local_sha" = "$zero" ]; then
+    continue
+  fi
+  if [ "$remote_sha" = "$zero" ]; then
+    range="$local_sha"
+  else
+    range="$remote_sha..$local_sha"
+  fi
+  node scripts/check-public-privacy.mjs --commits "$range"
+done

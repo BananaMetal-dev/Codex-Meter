@@ -61,6 +61,16 @@ macOS / Linux / Web / Android / iOSには対応していません。
 `v1.0.0` 形式のタグをpushすると、Windows上でテスト・自己完結ビルド・インストーラー生成を行い、ドラフトReleaseに添付します。内容を確認して公開したReleaseがlatest downloadの対象になります。
 公開は [RELEASE.md](RELEASE.md) の手順に従ってください。
 
+## 公開前のプライバシー確認
+
+この公開リポジトリでは、個人メールアドレス、ユーザー固有のローカルパス、秘密鍵、代表的な認証トークンをコミット前・push前・GitHub Actionsで検査します。初回は次を実行してください。
+
+```powershell
+.\scripts\install-git-hooks.ps1
+```
+
+手動確認は `node .\scripts\check-public-privacy.mjs --all` で実行できます。詳しくは [SECURITY.md](SECURITY.md) を参照してください。
+
 ## License
 
 Codex Meterのオープンソースライセンスは未設定です。ソースの閲覧可能性は、再配布・改変等のライセンス許諾を意味しません。
