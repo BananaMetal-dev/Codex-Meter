@@ -2,6 +2,9 @@ namespace CodexMeter;
 
 internal static class Program
 {
+    private const string InstanceMutexName = @"Local\CodexMeterV1";
+    private const string ShowEventName = @"Local\CodexMeterV1Show";
+
     [STAThread]
     private static int Main(string[] args)
     {
@@ -15,9 +18,14 @@ internal static class Program
             try { DesktopLauncher.Launch(); }
             catch { MessageBox.Show("Codex Desktopを起動できません。Microsoft Store版がインストールされているか確認してください。", "Codex Meter", MessageBoxButtons.OK, MessageBoxIcon.Information); }
         }
-        using var mutex = new Mutex(true, @"Local\CodexMeterV1", out bool created);
-        if (!created) return 0;
-        try { using var app = new MeterContext(args.Contains("--show")); Application.Run(app); }
+        using var showEvent = new EventWaitHandle(false, EventResetMode.AutoReset, ShowEventName);
+        using var mutex = new Mutex(true, InstanceMutexName, out bool created);
+        if (!created)
+        {
+            showEvent.Set();
+            return 0;
+        }
+        try { using var app = new MeterContext(args.Contains("--show"), showEvent: showEvent); Application.Run(app); }
         finally { mutex.ReleaseMutex(); }
         return 0;
     }
@@ -37,6 +45,7 @@ internal sealed class MeterContext : ApplicationContext
     private readonly NotifyIcon tray;
     private readonly System.Windows.Forms.Timer clock = new() { Interval = 1000 };
     private readonly CancellationTokenSource stop = new();
+    private readonly RegisteredWaitHandle? showRequest;
     private readonly NotificationLedger? ledger;
     private readonly Func<CancellationToken, Task<Snapshot>> read;
     private Snapshot? snapshot;
@@ -44,7 +53,7 @@ internal sealed class MeterContext : ApplicationContext
     private bool reading, closing;
     private string? notificationError;
 
-    public MeterContext(bool show, Func<CancellationToken, Task<Snapshot>>? reader = null)
+    public MeterContext(bool show, Func<CancellationToken, Task<Snapshot>>? reader = null, EventWaitHandle? showEvent = null)
     {
         read = reader ?? AppServer.ReadAsync;
         popup.AutoScroll = true;
@@ -52,6 +61,12 @@ internal sealed class MeterContext : ApplicationContext
         _ = popup.Handle; // Create the UI handle for synchronization, without showing a window.
         SynchronizationContext.SetSynchronizationContext(new WindowsFormsSynchronizationContext());
         popup.FormClosing += (_, e) => { if (!closing) { e.Cancel = true; popup.Hide(); } };
+        if (showEvent != null)
+            showRequest = ThreadPool.RegisterWaitForSingleObject(showEvent, (_, timedOut) => {
+                if (timedOut || closing || popup.IsDisposed) return;
+                try { popup.BeginInvoke(Open); }
+                catch (InvalidOperationException) { }
+            }, null, Timeout.Infinite, false);
         var menu = new ContextMenuStrip();
         menu.Items.Add("表示", null, (_, _) => Open());
         menu.Items.Add("終了", null, (_, _) => ExitThread());
@@ -142,7 +157,7 @@ internal sealed class MeterContext : ApplicationContext
     }
     protected override void Dispose(bool disposing)
     {
-        if (disposing) { clock.Dispose(); tray.ContextMenuStrip?.Dispose(); tray.Dispose(); popup.Dispose(); stop.Dispose(); }
+        if (disposing) { showRequest?.Unregister(null); clock.Dispose(); tray.ContextMenuStrip?.Dispose(); tray.Dispose(); popup.Dispose(); stop.Dispose(); }
         base.Dispose(disposing);
     }
 }

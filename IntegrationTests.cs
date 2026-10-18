@@ -6,7 +6,8 @@ internal static class IntegrationTests
     {
         var results = new List<string>();
         void Check(bool value, string name) => results.Add((value ? "PASS " : "FAIL ") + name);
-        using var context = new MeterContext(false);
+        using var showEvent = new EventWaitHandle(false, EventResetMode.AutoReset);
+        using var context = new MeterContext(false, showEvent: showEvent);
         T Field<T>(string name) => (T)typeof(MeterContext).GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(context)!;
         using var timer = new System.Windows.Forms.Timer { Interval = 200 };
         int phase = 0;
@@ -24,15 +25,22 @@ internal static class IntegrationTests
                 Check(tray.Visible && !popup.Visible, "startup is tray-only");
                 var data = Field<Snapshot?>("snapshot");
                 Check(data?.FiveHour?.UsedPercent != null && data?.Weekly?.ResetsAt != null && data?.AvailableCount != null, "real app-server values reach UI model");
-                typeof(NotifyIcon).GetMethod("OnMouseClick", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(tray, [new MouseEventArgs(MouseButtons.Left,1,0,0,0)]);
-                Check(popup.Visible, "tray left-click handler opens popup");
+                showEvent.Set();
                 phase = 1;
             }
-            else
+            else if (phase == 1)
             {
+                if (!popup.Visible) return;
+                Check(popup.Visible, "second-launch signal opens popup");
                 Check(Field<Label>("content").Text.Contains("週:"), "popup renders refreshed values");
                 popup.Close();
                 Check(!popup.Visible && tray.Visible, "window close keeps tray alive");
+                typeof(NotifyIcon).GetMethod("OnMouseClick", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(tray, [new MouseEventArgs(MouseButtons.Left,1,0,0,0)]);
+                Check(popup.Visible, "tray left-click handler opens popup");
+                phase = 2;
+            }
+            else
+            {
                 timer.Stop();
                 ((ToolStripMenuItem)tray.ContextMenuStrip!.Items[1]).PerformClick();
                 Check(!tray.Visible, "exit menu handler removes tray and exits message loop");

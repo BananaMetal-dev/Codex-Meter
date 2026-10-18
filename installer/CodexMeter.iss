@@ -46,9 +46,10 @@ Source: "{#PublishDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
 
 [Icons]
 Name: "{group}\Codex + Meter"; Filename: "{app}\CodexMeter.exe"; Parameters: "--with-codex"; WorkingDir: "{app}"
-Name: "{group}\Codex Meter"; Filename: "{app}\CodexMeter.exe"; WorkingDir: "{app}"
+Name: "{group}\Codex Meter"; Filename: "{app}\CodexMeter.exe"; Parameters: "--show"; WorkingDir: "{app}"
 Name: "{group}\Codex Meter のアンインストール"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\Codex + Meter"; Filename: "{app}\CodexMeter.exe"; Parameters: "--with-codex"; WorkingDir: "{app}"; Tasks: desktopicon
+Name: "{autodesktop}\Codex Meter"; Filename: "{app}\CodexMeter.exe"; Parameters: "--show"; WorkingDir: "{app}"; Tasks: desktopicon
 
 [Run]
 Filename: "{app}\CodexMeter.exe"; Description: "Codex Meterを起動"; Flags: nowait postinstall skipifsilent
